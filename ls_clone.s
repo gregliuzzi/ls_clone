@@ -106,11 +106,11 @@ insert_bytes:
 	jmp insert_bytes
 
 restore_registers:
-	mov cl, [newline_str]
+	mov cl, [fourspace_str]
 	mov [rsi], cl	
 	pop rcx
 	inc rsi
-	inc rdi
+	add rdi, 0x4
 	add r15, rdi
 	jmp loop
 	
