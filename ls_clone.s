@@ -13,7 +13,7 @@
 .set O_NONBLOCK, 0x800
 .set O_CLOEXEC, 0x80000
 .set O_DIRECTORY, 0x1000
-.set READBUFLEN, 4096
+.set WRITEBUFLEN, 4096
 
 #-------------- DATA--------------#
 
@@ -29,7 +29,8 @@ total_str:
 	.string "total "
 
 buf_for_read:
-	.space READBUFLEN + 1
+	.space WRITEBUFLEN + 1
+	.set buf_end, buf_for_read + WRITEBUFLEN - 1
 
 #--------------MAIN--------------#
 .global _start
@@ -64,6 +65,9 @@ _start:
 	xor r12, r12 # zero padding byte 
 	xor r13, r13 # file type 
 	xor r14, r14
+	xor rdi, rdi	
+	lea rsi, [buf_end]
+	xor r15, r15
 loop:
 # struct linux_dirent {
 # unsigned long d_ino
@@ -83,30 +87,57 @@ loop:
 	lea rdx, [rbx+0x13] # mov d_name into rdx
 	cmp r12, rax # check offset against end of buffer
 	je exit # if offset == buffer length (bytes returned by getdents), exit
-	jmp write_results # else write filename to stdout
+	xor rdi, rdi
+	jmp update_buffer # else write filename to stdout
 
-write_results:
-	push rax # save result of getdents64 to restore later
-	push rbx # save offset 
-	push rcx # save length of record
-	mov eax, WRITE_SYSCALL 
-	mov rdi, STDOUT_FD
-	mov rsi, rdx # filename
-	mov rdx, r14 # filename length
-	syscall # write filename to stdout
-	push 0xa # push newline
-	mov eax, 0x1
-	mov rdi, 0x1
-	mov rsi, rsp
-	mov rdx, 0x1
-	syscall # write newline to stdout
-	pop r11 # pop newline
-	pop rcx # restore registers
-	pop rbx 
-	pop rax
-	jmp loop #jmp back to main loop
+update_buffer:
+	push rcx
+	push rdx
+	xor rcx, rcx
+	jmp find_null_byte
 
+find_null_byte:
+	mov cl, byte ptr [rdx]
+	cmp cl, 0x0
+	je update_string_length
+	inc rdx
+	inc rdi
+	jmp find_null_byte
+
+update_string_length:
+	pop rdx
+	mov r14, rdi
+	sub r14, 0x1
+	xor rdi, rdi
+	add rdx, r14
+	jmp insert_bytes
+
+insert_bytes:
+	mov cl, byte ptr [rdx]
+	cmp cl, 0x0
+	je restore_registers
+	sub rsi, 0x1
+	mov [rsi], cl
+	dec rdx
+	inc rdi
+	jmp insert_bytes
+
+restore_registers:
+	mov cl, [newline_str]
+	mov [rsi], cl	
+	pop rcx
+	dec rsi
+	inc rdi
+	add r15, rdi
+	jmp loop
+	
 exit:
+	mov rax, WRITE_SYSCALL
+	mov rdx, r15
+	lea rsi, [buf_end]
+	sub rsi, r15
+	mov rdi, STDOUT_FD
+	syscall
 	mov rax, EXIT_SYSCALL  # syscall number for exit
 	mov rdi, 0x0 # exit code
 	syscall
