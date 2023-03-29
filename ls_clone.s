@@ -13,9 +13,25 @@
 .set O_NONBLOCK, 0x800
 .set O_CLOEXEC, 0x80000
 .set O_DIRECTORY, 0x1000
+.set READBUFLEN, 4096
 
 #-------------- DATA--------------#
 
+.data
+
+newline_str:
+	.string "\n"
+
+fourspace_str:
+	.string "    "
+
+total_str:
+	.string "total "
+
+buf_for_read:
+	.space READBUFLEN + 1
+
+#--------------MAIN--------------#
 .global _start
 .intel_syntax noprefix
 .text
