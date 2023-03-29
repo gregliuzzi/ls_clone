@@ -1,22 +1,40 @@
+#--------------- CONSTANTS -------------#
+.set READ_SYSCALL, 0x0
+.set WRITE_SYSCALL, 0x1
+.set OPENAT_SYSCALL, 0x101
+.set GETCWD_SYSCALL, 0x4f
+.set GETDENTS64_SYSCALL, 0xd9
+.set EXIT_SYSCALL, 0x3c
+.set STDIN_FD, 0x0
+.set STDOUT_FD, 0x1
+
+.set AT_FDCWD, -100
+.set O_RDONLY, 0x0
+.set O_NONBLOCK, 0x800
+.set O_CLOEXEC, 0x80000
+.set O_DIRECTORY, 0x1000
+
+#-------------- DATA--------------#
+
 .global _start
 .intel_syntax noprefix
-
+.text
 _start:
-	mov eax, 0x4f # sycall number for getcwd
+	mov eax, GETCWD_SYSCALL 
 	sub rsp, 0x1000 # allocate space for cwd - worst case 4096 bytes
 	mov rdi, rsp
 	mov rsi, 0x1000
 	syscall
-	mov eax, 0x101 # syscall number for openat
-	mov rdi, -100  # AT_FDCWD
+	mov eax, OPENAT_SYSCALL 
+	mov rdi, AT_FDCWD  
 	mov rsi, rsp  # '.'/CWD hex value
-	mov rdx, 0x0 # O_RDONLY
-	xor rdx, 0x800 #  O_NONBLOCK
-	xor rdx, 0x80000 # O_CLOEXEC
-	xor rdx, 0x10000 # O_DIRECTORY
+	mov rdx, O_RDONLY 
+	xor rdx, O_NONBLOCK
+	xor rdx, O_CLOEXEC 
+	xor rdx, O_DIRECTORY
 	syscall
 	mov rdi, rax # file descriptor
-	mov rax, 0xd9 # syscall number for getdents64
+	mov rax, GETDENTS64_SYSCALL 
 	sub rsp, 0x1000
 	mov rsi, rsp # buff to write to
 	syscall
@@ -55,8 +73,8 @@ write_results:
 	push rax # save result of getdents64 to restore later
 	push rbx # save offset 
 	push rcx # save length of record
-	mov eax, 0x1 # syscall number for write
-	mov rdi, 0x1 # stdout fd
+	mov eax, WRITE_SYSCALL 
+	mov rdi, STDOUT_FD
 	mov rsi, rdx # filename
 	mov rdx, r14 # filename length
 	syscall # write filename to stdout
@@ -73,6 +91,6 @@ write_results:
 	jmp loop #jmp back to main loop
 
 exit:
-	mov rax, 0x3c # syscall number for exit
+	mov rax, EXIT_SYSCALL  # syscall number for exit
 	mov rdi, 0x0 # exit code
 	syscall
