@@ -66,7 +66,7 @@ _start:
 	xor r13, r13 # file type 
 	xor r14, r14
 	xor rdi, rdi	
-	lea rsi, [buf_end]
+	lea rsi, buf_for_read
 	xor r15, r15
 loop:
 # struct linux_dirent {
@@ -92,33 +92,16 @@ loop:
 
 update_buffer:
 	push rcx
-	push rdx
 	xor rcx, rcx
-	jmp find_null_byte
-
-find_null_byte:
-	mov cl, byte ptr [rdx]
-	cmp cl, 0x0
-	je update_string_length
-	inc rdx
-	inc rdi
-	jmp find_null_byte
-
-update_string_length:
-	pop rdx
-	mov r14, rdi
-	sub r14, 0x1
-	xor rdi, rdi
-	add rdx, r14
 	jmp insert_bytes
 
 insert_bytes:
 	mov cl, byte ptr [rdx]
 	cmp cl, 0x0
 	je restore_registers
-	sub rsi, 0x1
 	mov [rsi], cl
-	dec rdx
+	inc rsi
+	inc rdx
 	inc rdi
 	jmp insert_bytes
 
@@ -126,7 +109,7 @@ restore_registers:
 	mov cl, [newline_str]
 	mov [rsi], cl	
 	pop rcx
-	dec rsi
+	inc rsi
 	inc rdi
 	add r15, rdi
 	jmp loop
@@ -134,8 +117,7 @@ restore_registers:
 exit:
 	mov rax, WRITE_SYSCALL
 	mov rdx, r15
-	lea rsi, [buf_end]
-	sub rsi, r15
+	lea rsi, buf_for_read
 	mov rdi, STDOUT_FD
 	syscall
 	mov rax, EXIT_SYSCALL  # syscall number for exit
