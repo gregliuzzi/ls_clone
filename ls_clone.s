@@ -153,7 +153,7 @@ loop:
 	sub r14, 0x13
 	lea rdx, [rbx+0x13] # mov d_name into rdx
 	cmp r12, rax # check offset against end of buffer
-	je exit # if offset == buffer length (bytes returned by getdents), exit
+	je write_results # if offset == buffer length (bytes returned by getdents), exit
 	xor rdi, rdi
 	jmp update_buffer # else write filename to stdout
 
@@ -184,13 +184,16 @@ restore_registers:
 	add rdi, 0x4
 	add r15, rdi
 	jmp loop
-	
-exit:
+
+write_results:
 	mov rax, WRITE_SYSCALL
 	mov rdx, r15
 	lea rsi, buf_for_read
 	mov rdi, STDOUT_FD
 	syscall
+	jmp exit
+	
+exit:
 	mov rax, EXIT_SYSCALL  # syscall number for exit
 	mov rdi, 0x0 # exit code
 	syscall
