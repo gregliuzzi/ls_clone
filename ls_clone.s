@@ -92,7 +92,7 @@ pre_loop:
 	mov rsi, rsp # buff to write to
 	syscall
 	cmp rax, 0x0
-	je exit 
+	jl .L_error_condition
 	mov rbx, rsp # offset in buffer
 	xor rcx, rcx # length of current linux_dirent
 	xor rdx, rdx # filename (null-terminated)
@@ -123,17 +123,17 @@ pre_loop:
 	lea rsi, [eperm]
 	mov rdx, len_eperm
 	syscall
-	jmp exit
+	jmp .L_error_condition
 .L_enoent:
 	lea rsi, [enoent]
 	mov rdx, len_enoent
 	syscall
-	jmp exit
+	jmp .L_error_condition
 .L_eacces:
 	lea rsi, [eacces]
 	mov rdx, len_eacces
 	syscall
-	jmp exit
+	jmp .L_error_condition
 
 loop:
 # struct linux_dirent {
@@ -191,9 +191,18 @@ write_results:
 	lea rsi, buf_for_read
 	mov rdi, STDOUT_FD
 	syscall
+	cmp rax, 0x0
+	jl .L_error_condition
+	jmp .L_success_condition
+
+.L_error_condition:
+	mov rdi, 0x1 # set exit number to 1 to indicate error
+	jmp exit
+
+.L_success_condition:
+	mov rdi, 0x0
 	jmp exit
 	
 exit:
 	mov rax, EXIT_SYSCALL  # syscall number for exit
-	mov rdi, 0x0 # exit code
 	syscall
