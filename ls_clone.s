@@ -4,6 +4,7 @@
 .set OPENAT_SYSCALL, 0x101
 .set GETCWD_SYSCALL, 0x4f
 .set GETDENTS64_SYSCALL, 0xd9
+.set STATX_SYSCALL, 0x14c
 .set EXIT_SYSCALL, 0x3c
 .set STDIN_FD, 0x0
 .set STDOUT_FD, 0x1
@@ -14,7 +15,10 @@
 .set O_CLOEXEC, 0x80000
 .set O_DIRECTORY, 0x1000
 .set WRITEBUFLEN, 4096
-
+.set STATBUFLEN, 58
+.set ITOABUFLEN, 11
+.set DT_DIR, 0x4
+.set DT_REG, 0x8
 #-------------- DATA--------------#
 
 .data
@@ -32,19 +36,35 @@ buf_for_read:
 	.space WRITEBUFLEN + 1
 	.set buf_end, buf_for_read + WRITEBUFLEN - 1
 
+stat_buf:
+	.space STATBUFLEN
+	.set stat_buf_end, stat_buf + STATBUFLEN
+
+itoa_buf:
+	.space ITOABUFLEN +1
+	.set ito_buf_end, itoa_buf + ITOABUFLEN - 1
+
 #--------------MAIN--------------#
 .global _start
 .intel_syntax noprefix
 .text
 _start:
+
+	mov rbx, [rsp]
+	cmp rbx, 0x1
+	jle no_argv
+	mov rsi, [rsp+0x10]
+	jmp pre_loop
+no_argv:
 	mov eax, GETCWD_SYSCALL 
 	sub rsp, 0x1000 # allocate space for cwd - worst case 4096 bytes
 	mov rdi, rsp
 	mov rsi, 0x1000
 	syscall
+	mov rsi, rsp
+pre_loop:	
 	mov eax, OPENAT_SYSCALL 
 	mov rdi, AT_FDCWD  
-	mov rsi, rsp  # '.'/CWD hex value
 	mov rdx, O_RDONLY 
 	xor rdx, O_NONBLOCK
 	xor rdx, O_CLOEXEC 
@@ -89,6 +109,10 @@ loop:
 	je exit # if offset == buffer length (bytes returned by getdents), exit
 	xor rdi, rdi
 	jmp update_buffer # else write filename to stdout
+
+get_file_info:
+mov rax, STATX_SYSCALL
+mov rdi, AT_FDCWD
 
 update_buffer:
 	push rcx
