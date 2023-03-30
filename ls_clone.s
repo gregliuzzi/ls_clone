@@ -106,6 +106,7 @@ pre_loop:
 	xor rdi, rdi	
 	lea rsi, buf_for_read
 	xor r15, r15
+	jmp loop
 
 .L_open_at_handler:
 	mov r12, rax
