@@ -19,9 +19,25 @@
 .set ITOABUFLEN, 11
 .set DT_DIR, 0x4
 .set DT_REG, 0x8
+.set EPERM, 0x1
+.set ENOENT,0x2
+.set EACCES, 0xd
 #-------------- DATA--------------#
 
 .data
+
+filename:
+	.string "hello"
+
+eperm:
+	.string "lxx64: Operation not permitted"
+	len_eperm = . - eperm
+enoent:
+	.string "lsx64: No such file or directory"
+	len_enoent = . - enoent
+eacces:
+	.string "lsx64: Permission denied"
+	len_eacces = . - eacces
 
 newline_str:
 	.string "\n"
@@ -70,6 +86,8 @@ pre_loop:
 	xor rdx, O_CLOEXEC 
 	xor rdx, O_DIRECTORY
 	syscall
+	cmp rax, 0x0
+	jl .L_open_at_handler
 	mov rdi, rax # file descriptor
 	mov rax, GETDENTS64_SYSCALL 
 	sub rsp, 0x1000
@@ -88,6 +106,36 @@ pre_loop:
 	xor rdi, rdi	
 	lea rsi, buf_for_read
 	xor r15, r15
+
+.L_open_at_handler:
+	mov r12, rax
+	neg r12
+	mov rax, 0x1
+	mov rdi, 0x1
+	cmp r12, EPERM
+	je .L_eperm
+	cmp r12, ENOENT
+	je .L_enoent
+	cmp r12, EACCES
+	je .L_eacces
+	jmp exit
+
+.L_eperm:
+	lea rsi, [eperm]
+	mov rdx, len_eperm
+	syscall
+	jmp exit
+.L_enoent:
+	lea rsi, [enoent]
+	mov rdx, len_enoent
+	syscall
+	jmp exit
+.L_eacces:
+	lea rsi, [eacces]
+	mov rdx, len_eacces
+	syscall
+	jmp exit
+
 loop:
 # struct linux_dirent {
 # unsigned long d_ino
