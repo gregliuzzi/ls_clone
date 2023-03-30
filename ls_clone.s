@@ -26,8 +26,13 @@
 
 .data
 
-filename:
-	.string "hello"
+ansi_directory_color_start:
+	.string "\x1b[44m"
+	len_ansi_directory_color_start = . - ansi_directory_color_start
+
+ansi_directory_color_end:
+	.string "\x1b[0m"
+	len_ans_directory_color_end = . - ansi_directory_color_end
 
 eperm:
 	.string "lxx64: Operation not permitted"
@@ -51,9 +56,9 @@ fourspace_str:
 total_str:
 	.string "total "
 
-buf_for_read:
+output_buf:
 	.space WRITEBUFLEN + 1
-	.set buf_end, buf_for_read + WRITEBUFLEN - 1
+	.set buf_end, output_buf + WRITEBUFLEN - 1
 
 stat_buf:
 	.space STATBUFLEN
@@ -102,7 +107,7 @@ pre_loop:
 	xor r13, r13 # file type 
 	xor r14, r14
 	xor rdi, rdi	
-	lea rsi, buf_for_read
+	lea rsi, output_buf
 	xor r15, r15
 	jmp loop
 
@@ -162,9 +167,42 @@ mov rax, STATX_SYSCALL
 mov rdi, AT_FDCWD
 
 update_buffer:
+	.set IS_DIRECTORY, 0x1
 	push rcx
 	xor rcx, rcx
+	cmp r13, DT_DIR
+	je .L_is_directory_start
 	jmp insert_bytes
+
+.L_is_directory_start:
+	mov r11, IS_DIRECTORY
+	lea r10, [ansi_directory_color_start]	
+	jmp .L_write_loop_start
+
+.L_is_directory_end:
+	xor r11, r11
+	lea r10, [ansi_directory_color_end]
+	jmp .L_write_loop_end
+
+.L_write_loop_start:	
+	mov cl, byte ptr [r10]
+	cmp cl, 0x0
+	je insert_bytes
+	mov [rsi], cl
+	inc rsi
+	inc rdi
+	inc r10
+	jmp .L_write_loop_start
+
+.L_write_loop_end:	
+	mov cl, byte ptr [r10]
+	cmp cl, 0x0
+	je restore_registers
+	mov [rsi], cl
+	inc rsi
+	inc rdi
+	inc r10
+	jmp .L_write_loop_end
 
 insert_bytes:
 	mov cl, byte ptr [rdx]
@@ -177,8 +215,10 @@ insert_bytes:
 	jmp insert_bytes
 
 restore_registers:
+	cmp r11, 0x1
+	je .L_is_directory_end		
 	mov cl, [fourspace_str]
-	mov [rsi], cl	
+	mov [rsi], cl
 	pop rcx
 	inc rsi
 	add rdi, 0x4
@@ -188,7 +228,7 @@ restore_registers:
 write_results:
 	mov rax, WRITE_SYSCALL
 	mov rdx, r15
-	lea rsi, buf_for_read
+	lea rsi, output_buf
 	mov rdi, STDOUT_FD
 	syscall
 	cmp rax, 0x0
