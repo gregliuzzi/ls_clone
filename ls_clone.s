@@ -39,6 +39,9 @@ eacces:
 	.string "lsx64: Permission denied"
 	len_eacces = . - eacces
 
+cwd:
+	.string "."
+
 newline_str:
 	.string "\n"
 
@@ -72,12 +75,7 @@ _start:
 	mov rsi, [rsp+0x10]
 	jmp pre_loop
 no_argv:
-	mov eax, GETCWD_SYSCALL 
-	sub rsp, 0x1000 # allocate space for cwd - worst case 4096 bytes
-	mov rdi, rsp
-	mov rsi, 0x1000
-	syscall
-	mov rsi, rsp
+	lea rsi, [cwd]
 pre_loop:	
 	mov eax, OPENAT_SYSCALL 
 	mov rdi, AT_FDCWD  
